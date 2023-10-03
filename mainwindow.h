@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QFuture>
+#include <QFutureWatcher>
 #include <QMainWindow>
 
 QT_BEGIN_NAMESPACE
@@ -29,4 +30,5 @@ private:
   Ui::MainWindow *ui;
   QFuture<std::tuple<QString, int, int>> future_;
   QList<std::pair<QString, int>> addresses_;
+  QFutureWatcher<std::tuple<QString, int, int>> *watcher = nullptr;
 };

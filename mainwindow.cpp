@@ -65,7 +65,7 @@ std::tuple<QString, int, int> ping(std::pair<QString, int> pair, int count,
 
   QProcess process;
   process.start(program, arguments);
-  bool isOk = process.waitForFinished(10000);
+  bool isOk = process.waitForFinished(12000);
   auto data = process.readAllStandardOutput();
   auto res = parsePingOutput(data, addr);
   return std::make_tuple(res.first, res.second, pos);
@@ -81,6 +81,26 @@ MainWindow::MainWindow(QWidget *parent)
           &MainWindow::onScanClicked);
   connect(ui->btnPause, &QPushButton::clicked, this,
           &MainWindow::onPauseClicked);
+
+  watcher = new QFutureWatcher<std::tuple<QString, int, int>>(this);
+  connect(watcher, &QFutureWatcher<QString>::progressValueChanged, this,
+          &MainWindow::onFutureProgress);
+  connect(watcher, &QFutureWatcher<QString>::canceled, this,
+          []() { qDebug() << "Canceled"; });
+  connect(watcher, &QFutureWatcher<QString>::paused, this,
+          []() { qDebug() << "Paused"; });
+  connect(watcher, &QFutureWatcher<QString>::destroyed, this,
+          []() { qDebug() << "Destroyed"; });
+  connect(watcher, &QFutureWatcher<QString>::finished, this,
+          &MainWindow::onFinished);
+
+  connect(watcher, &QFutureWatcher<QString>::resultReadyAt, this,
+          &MainWindow::onResultReadyAt);
+
+  connect(watcher, &QFutureWatcher<QString>::resumed, this,
+          []() { qDebug() << "Resumed"; });
+  connect(watcher, &QFutureWatcher<QString>::started, this,
+          &MainWindow::onStarted);
 }
 
 MainWindow::~MainWindow() {
@@ -95,7 +115,11 @@ void MainWindow::onScanClicked() {
     ui->pushButton->setText("Scan");
     ui->progressBar->hide();
     ui->btnPause->hide();
-    future_.cancel();
+    if (watcher)
+      watcher->cancel();
+    if (future_.isRunning())
+      future_.cancel();
+
   } else {
     ui->btnPause->show();
     ui->progressBar->show();
@@ -106,32 +130,13 @@ void MainWindow::onScanClicked() {
 
     int count = ui->spinCount->value();
     int timeout = ui->spinTimeout->value();
+
     std::function<std::tuple<QString, int, int>(std::pair<QString, int>)>
-        myFunc = [&](std::pair<QString, int> arg) {
+        myFunc = [=](std::pair<QString, int> arg) {
           return ping(arg, count, timeout);
         };
+
     future_ = QtConcurrent::mapped(addresses_, myFunc);
-
-    auto watcher = new QFutureWatcher<std::tuple<QString, int, int>>(this);
-    connect(watcher, &QFutureWatcher<QString>::progressValueChanged, this,
-            &MainWindow::onFutureProgress);
-    connect(watcher, &QFutureWatcher<QString>::canceled, this,
-            []() { qDebug() << "Canceled"; });
-    connect(watcher, &QFutureWatcher<QString>::paused, this,
-            []() { qDebug() << "Paused"; });
-    connect(watcher, &QFutureWatcher<QString>::destroyed, this,
-            []() { qDebug() << "Destroyed"; });
-    connect(watcher, &QFutureWatcher<QString>::finished, this,
-            &MainWindow::onFinished);
-
-    connect(watcher, &QFutureWatcher<QString>::resultReadyAt, this,
-            &MainWindow::onResultReadyAt);
-
-    connect(watcher, &QFutureWatcher<QString>::resumed, this,
-            []() { qDebug() << "Resumed"; });
-    connect(watcher, &QFutureWatcher<QString>::started, this,
-            &MainWindow::onStarted);
-
     watcher->setFuture(future_);
   }
 }
@@ -154,6 +159,13 @@ void MainWindow::onResultReadyAt(int index) {
   auto result = future_.resultAt(index);
   ui->statusbar->showMessage(
       QString("Processing output from %1...").arg(std::get<0>(result)));
+
+  if (std::get<1>(result) == -1)
+    return;
+
+  if (std::get<1>(result) > 70)
+    return;
+
   auto row = ui->tableWidget->rowCount();
   ui->tableWidget->insertRow(row);
   ui->tableWidget->setItem(row, 0, new QTableWidgetItem(std::get<0>(result)));
@@ -165,6 +177,7 @@ void MainWindow::onStarted() {
   ui->progressBar->show();
   ui->pushButton->setText("Stop");
   ui->statusbar->showMessage(QString("Starting..."));
+  ui->tableWidget->setRowCount(0);
 }
 
 void MainWindow::onFinished() {
