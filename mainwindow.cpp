@@ -75,23 +75,32 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
   ui->setupUi(this);
   ui->progressBar->hide();
-  ui->tableWidget->setColumnCount(2);
+  ui->btnPause->hide();
 
   connect(ui->pushButton, &QPushButton::clicked, this,
           &MainWindow::onScanClicked);
+  connect(ui->btnPause, &QPushButton::clicked, this,
+          &MainWindow::onPauseClicked);
 }
 
-MainWindow::~MainWindow() { delete ui; }
+MainWindow::~MainWindow() {
+  if (future_.isRunning())
+    future_.cancel();
+
+  delete ui;
+}
 
 void MainWindow::onScanClicked() {
-  if (isScanned_) {
-    isScanned_ = false;
+  if (future_.isRunning()) {
     ui->pushButton->setText("Scan");
     ui->progressBar->hide();
+    ui->btnPause->hide();
+    future_.cancel();
   } else {
-    isScanned_ = true;
+    ui->btnPause->show();
     ui->progressBar->show();
     ui->pushButton->setText("Stop");
+
     addresses_ = collectAddresses(ui->lineEdit->text(), ui->spinBox->value(),
                                   ui->spinBox_2->value());
 
@@ -118,6 +127,16 @@ void MainWindow::onScanClicked() {
             &MainWindow::onStarted);
 
     watcher->setFuture(future_);
+  }
+}
+
+void MainWindow::onPauseClicked() {
+  if (future_.isPaused()) {
+    future_.resume();
+    ui->btnPause->setText("Pause");
+  } else {
+    future_.pause();
+    ui->btnPause->setText("Resume");
   }
 }
 
