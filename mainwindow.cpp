@@ -6,6 +6,7 @@
 #include <QFutureWatcher>
 #include <QProcess>
 #include <QtConcurrent>
+#include <functional>
 #include <utility>
 
 QList<std::pair<QString, int>> collectAddresses(QString pref, int from,
@@ -52,16 +53,15 @@ std::pair<QString, int> parsePingOutput(QString data, QString addr) {
   return std::make_pair(addr, percentValue);
 }
 
-std::tuple<QString, int, int> ping(std::pair<QString, int> pair) {
+std::tuple<QString, int, int> ping(std::pair<QString, int> pair, int count,
+                                   int timeout) {
   auto addr = pair.first;
   auto pos = pair.second;
 
   QString program = "ping";
   QStringList arguments;
-  arguments << "-n"
-            << "2"
-            << "-w"
-            << "10" << addr;
+  arguments << "-n" << QString::number(count) << "-w"
+            << QString::number(timeout) << addr;
 
   QProcess process;
   process.start(program, arguments);
@@ -104,7 +104,13 @@ void MainWindow::onScanClicked() {
     addresses_ = collectAddresses(ui->lineEdit->text(), ui->spinBox->value(),
                                   ui->spinBox_2->value());
 
-    future_ = QtConcurrent::mapped(addresses_, ping);
+    int count = ui->spinCount->value();
+    int timeout = ui->spinTimeout->value();
+    std::function<std::tuple<QString, int, int>(std::pair<QString, int>)>
+        myFunc = [&](std::pair<QString, int> arg) {
+          return ping(arg, count, timeout);
+        };
+    future_ = QtConcurrent::mapped(addresses_, myFunc);
 
     auto watcher = new QFutureWatcher<std::tuple<QString, int, int>>(this);
     connect(watcher, &QFutureWatcher<QString>::progressValueChanged, this,
