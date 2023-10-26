@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "ping_tree_model.h"
 #include "ui_mainwindow.h"
 
 #include <QDebug>
@@ -101,6 +102,9 @@ MainWindow::MainWindow(QWidget *parent)
           []() { qDebug() << "Resumed"; });
   connect(watcher, &QFutureWatcher<QString>::started, this,
           &MainWindow::onStarted);
+
+  pingTreeModel_ = new PingTreeModel(this);
+  ui->pingTree->setModel(pingTreeModel_);
 }
 
 MainWindow::~MainWindow() {

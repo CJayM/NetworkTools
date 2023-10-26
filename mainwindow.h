@@ -10,6 +10,8 @@ class MainWindow;
 }
 QT_END_NAMESPACE
 
+class PingTreeModel;
+
 class MainWindow : public QMainWindow {
   Q_OBJECT
 
@@ -28,7 +30,12 @@ private slots:
 
 private:
   Ui::MainWindow *ui;
+
+  // scan ips
   QFuture<std::tuple<QString, int, int>> future_;
   QList<std::pair<QString, int>> addresses_;
   QFutureWatcher<std::tuple<QString, int, int>> *watcher = nullptr;
+
+  // ping tree
+  PingTreeModel *pingTreeModel_ = nullptr;
 };

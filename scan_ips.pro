@@ -5,10 +5,12 @@ CONFIG += c++14
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    ping_tree_model.cpp
 
 HEADERS += \
-    mainwindow.h
+    mainwindow.h \
+    ping_tree_model.h
 
 FORMS += \
     mainwindow.ui
